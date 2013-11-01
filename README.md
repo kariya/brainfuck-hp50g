@@ -7,8 +7,11 @@ It's an ARM native code application, not emulated Saturn code.
 
 ## Usage
 Copy bin/bfi.hp and data/*.b to HP50g.
+
 Push a string of brainf*ck code(*.b) to the calculator stack.
+
 Optionally you can push to the stack another string as input.
+
 Execute the BFI.HP program and you can get the output string on the stack.
 
 
@@ -31,6 +34,7 @@ GPL
 
 ## Reference
 [1] Extend your 50g with C. http://sense.net/~egan/hpgcc/
+
 [2] BrainF*ck http://en.wikipedia.org/wiki/Brainfuck
 
 
