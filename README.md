@@ -15,6 +15,11 @@ Optionally you can push to the stack another string as input.
 Execute the BFI.HP program and you can get the output string on the stack.
 
 
+## Caution
+If brainf*ck code goes to infinite loop, there's no way to interrupt it.
+You might have a paper clip to reset the calculator.
+
+
 ## How to compile
 Install hpgcc (see [1]) and do "make bfi.hp" in src/interpreter directory.
 
