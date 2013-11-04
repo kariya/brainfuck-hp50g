@@ -1,7 +1,7 @@
 # BrainF*ck imlementation for HP50g calculator
 
 ## What's this?
-This is a implementation (currently interpreter only) of BrainF*ck language[2] for HP50g calculator.
+This is a implementation (currently interpreter done, jit compiler in development) of BrainF*ck language[2] for HP50g calculator.
 It's an ARM native code application, not emulated Saturn code.
 
 
@@ -17,7 +17,7 @@ Execute the BFI.HP program and you can get the output string on the stack.
 
 ## Caution
 If brainf*ck code goes to infinite loop, there's no way to interrupt it.
-You might have a paper clip to reset the calculator.
+You might need a paper clip to reset the calculator.
 
 
 ## How to compile
@@ -26,11 +26,9 @@ Install hpgcc (see [1]) and do "make bfi.hp" in src/interpreter directory.
 
 ## Purpose
 The purpose of this work is my exercise of learning ARM programming.
-Of cource the current version is a toy and very simple implementation, but ... (see TOOD)
 
-
-## TODO
-normal and JIT compiler. (I say it a bit seriously.)
+Now I prototyped an JIT compiler successfully with a few brainf*ck code running.
+My aim was partially done but I'll keep brushing it up.
 
 
 ## License
@@ -42,4 +40,5 @@ GPL
 
 [2] BrainF*ck http://en.wikipedia.org/wiki/Brainfuck
 
+[3] http://stackoverflow.com/questions/4461609/native-self-modifying-code-on-android
 
