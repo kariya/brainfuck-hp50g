@@ -52,8 +52,9 @@ static op_t jit[BUF_SIZE];
 op_t* jitPc = jit;
 op_t* jitStart = jit;
 
-void emit(op_t op) {
+int emit(op_t op) {
 	*jitPc++ = op;
+	return ((int) jitPc) - sizeof(short);
 }
 
 void emitAt(int addr, op_t op) {
@@ -137,6 +138,7 @@ int main() {
 
 //int Q = jitPc;
 	
+	int v4Opt = 0;
 	for(pc = 0; pc < prog_len; pc++) {
 		// '+', '-'
 		if (p[pc] == 43 || p[pc] == 45) {
@@ -164,18 +166,24 @@ int main() {
 				emit(0x3f00 | ((-d) & 0xff));		/* sub v4, v4, #{d} */
 				emit(0x7027);						/* strb v4, [v1] */
 			}
+			
+			v4Opt = 1;
 		}
 		// '.'
 		else if (p[pc] == 46) {
-			emit(0x7827);							/* ldrb v4, [v1] */
+			if (!v4Opt) emit(0x7827);				/* ldrb v4, [v1] */
 			emit(0x7037);							/* strb v4, [v3] */
 			emit(0x3601);							/* add v3, v3, #1 */
+		
+			v4Opt = 1;
 		}
 		// ','
 		else if (p[pc] == 44) {
 			emit(0x782f);							/* ldrb v4, [v2] */
 			emit(0x3501);							/* add v2, v2, #1 */
 			emit(0x7027);							/* strb v4, [v1] */
+
+			v4Opt = 1;
 		}
 		// '>'
 		// '<'
@@ -197,46 +205,49 @@ int main() {
 				// empty
 			} else if (d > 0) {
 				emit(0x3400 | (d & 0xff));				/* add v1, v1, #{d} */
+				v4Opt = 0;
 			} else if (d < 0) {
 				emit(0x3c00 | ((-d) & 0xff));			/* sub v1, v1, #{d} */
+				v4Opt = 0;
 			}
 		}
 		// '['
 		else if (p[pc] == 91) {
-			emit(0x7827);							/* ldrb v4, [v1] */
-			push(emitPc());
+			push(emit(0x7827));						/* ldrb v4, [v1] */
 			emit(0x433f);							/* orrs v4, v4 */
-			if (emitPc() % 4 != 0) {
-				emit(0xd104);						/* bne 8 (l:) */
-				emit(0x46c0);						/* nop */
-			} else {
-				emit(0xd103);						/* bne 6 (l:) */
-			}
-			emit(0x4f00);							/* ldr v4, [pc+0] */
+			int addr = emit(0xd103);				/* bne 6 (l:) */
+			int addr2 = emit(0x4f00);							/* ldr v4, [pc+0] */
 			emit(0x4738);							/* bx v4 */
-			emit(0x46c0);							/* nop */
-			push(emitPc());
+			if (emitPc() % 4 == 0) {
+				emit(0x46c0);						/* nop */
+				emitAt(addr, 0xd104);				/* bne 8 */
+				emitAt(addr2, 0x4f01);				// ldr v4, [pc, #4]
+			}
+			push(emit(0x46c0));						/* nop */
 			emit(0x46c0);							/* nop */
 													/* l: */
+			v4Opt = 0;
 		}
 		// ']'
 		else if (p[pc] == 93) {
 			int ret = pop();
 			unsigned addr = ((emitPc() + 10) << 0) | 1;
-
-			if (emitPc() % 4 == 0) {
-				addr = ((emitPc() + 12) << 0) | 1;
+			int addr2 = emit(0x4f00);				// ldr v4, [pc+0]
+			int pc = emit(0x4738);					// bx v4
+			if (pc % 4 == 0) {
+				addr += 2;
 				emit(0x46c0);						/* nop */
+				emitAt(addr2, 0x4f01);				// ldr v4, [pc + #4]
 			}
 			emitAt(ret + 0, addr & 0xffff);
 			emitAt(ret + 2, (addr >> 16) & 0xffff);
 
-			emit(0x4f00);							// ldr v4, [pc+0]
-			emit(0x4738);							// bx v4
 			ret = pop();
 			addr = (ret << 0) | 1;
 			emit(addr & 0xffff);
 			emit((addr >> 16) & 0xffff);
+
+			v4Opt = 0;
 		}
 	}
 	
@@ -254,7 +265,7 @@ int main() {
 */	
 	beep();
 	typedef void (*funcp)();
-	(*(funcp)((unsigned)jitStart|1))();
+	(*(funcp)((unsigned)jitStart|1))();			// 1 means the callee is thumb code
 	beep();
 	
 	sys_slowOn();
