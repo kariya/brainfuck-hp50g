@@ -193,7 +193,7 @@ int main() {
 			} else if (d > 0) {
 				emit(0x3400 | (d & 0xff));				/* add v1, v1, #{d} */
 			} else if (d < 0) {
-				emit(0x3c00 | (d & 0xff));				/* sub v1, v1, #{d} */
+				emit(0x3c00 | ((-d) & 0xff));				/* sub v1, v1, #{d} */
 			}
 		}
 		// '['
