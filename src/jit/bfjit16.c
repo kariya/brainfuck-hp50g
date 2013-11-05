@@ -86,7 +86,7 @@ int main() {
 		prog_len = strlen(p);
 	}
 
-	// sys_slowOff();
+	sys_slowOff();
 	
 	pc = 0;
 
@@ -132,7 +132,7 @@ int main() {
 	emit(0x433e);									/* orrs v3, v4 */	
 	
 
-//	emit(0xbcf0);emit(0x4770);emit(0x4770);emit(0x4770);emit(0x4770);
+int Q = jitPc;
 	
 	for(pc = 0; pc < prog_len; pc++) {
 		// '+'
@@ -170,15 +170,36 @@ int main() {
 		// '['
 		else if (p[pc] == 91) {
 			emit(0x7827);							/* ldrb v4, [v1] */
+			push(emitPc());
 			emit(0x433f);							/* orrs v4, v4 */
+			emit(0xd104);							/* bne l:*/
+			if (emitPc() % 4 == 0) {
+				emit(0x46c0);						/* nop */
+			}
+			emit(0x4f00);							/* ldr v4, [pc+0] */
+			emit(0x4738);							/* bx v4 */
 			emit(0x46c0);							/* nop */
 			push(emitPc());
+			emit(0x46c0);							/* nop */
+													/* l: */
 		}
 		// ']'
 		else if (p[pc] == 93) {
 			int ret = pop();
-			emit(0xe000 | ((((ret - emitPc()) - 10) >> 1) & 0x7ff)); 		/* b ${(ret - emitPc()) >> 2} */
-			emitAt(ret, 0xd000 | ((((emitPc() - ret) - 2) >> 1) & 0xff)); 	/* bz ${(emitPc() - ret) >> 2} */
+			unsigned addr = ((emitPc() + 2) << 2) | 1;
+			emitAt(ret + 0, (addr >> 16) & 0xffff);
+			emitAt(ret + 2, addr & 0xffff);
+
+			if (emitPc() % 4 == 0) {
+				emit(0x46c0);						/* nop */
+			}
+			emit(0x4f00);							// ldr v4, [pc+0]
+			emit(0x4738);							// bx v4
+			ret = pop();
+			addr = (ret << 2) | 1;
+			emit((addr >> 16) & 0xffff);
+			emit(addr& 0xffff);
+			
 		}
 	}
 	
@@ -190,7 +211,9 @@ int main() {
 
 	emit(0x4770);								/* bx lr */
 	
-	x[0] = 'Q';
+	short* i;
+	for (i = Q; i < Q + 40; ++i) printf("%x:", *(short*)i & 0xffff);
+	WAIT_CANCEL;
 	
 	beep();
 	typedef void (*funcp)();
