@@ -46,27 +46,30 @@
 #define in() (*pin++)
 
 #define BUF_SIZE (1024*16)
+typedef unsigned short op_t;
 
-static short jit[BUF_SIZE];
-short* jitPc = jit;
-short* jitStart = jit;
+static op_t jit[BUF_SIZE];
+op_t* jitPc = jit;
+op_t* jitStart = jit;
 
-void emit(short op) {
+void emit(op_t op) {
 	*jitPc++ = op;
 }
 
-void emitAt(int addr, short op) {
+void emitAt(int addr, op_t op) {
 	*(short*)addr = op;
 }
 
 int emitPc() {
-	return ((int) jitPc) - 2;
+	return ((int) jitPc) - sizeof(short);
 }
 
 int stack[256];
 int* stackp = &stack[0];
 #define push(x) (*stackp++ = (x))
 #define pop()   (*--stackp)
+
+#define isOp(c) ((c)=='+'||(c)=='-'||(c)=='<'||(c)=='>'||(c)=='.'||(c)==','||(c)=='['||(c)==']')
 
 
 int main() {
@@ -132,32 +135,33 @@ int main() {
 	emit(0x433e);									/* orrs v3, v4 */	
 	
 
-int Q = jitPc;
+//int Q = jitPc;
 	
 	for(pc = 0; pc < prog_len; pc++) {
 		// '+', '-'
 		if (p[pc] == 43 || p[pc] == 45) {
 			// sequential [+-] can optimize
-			// abs(d) > 255 may crash this shcemem
 			int d = 0;
 			while (1) {
 				if (p[pc] == 43) d++;
-				else if (p[pc] == 43) d--;
-				else {
+				else if (p[pc] == 45) d--;
+				else /*if (!isOp(p[pc]) && pc < prog_len)*/ {
 					pc--;
 					break;
 				}
+
 				pc++;
+				if (d == 255 || d == -255) break;
 			}
 			if (d == 0) {
 				// empty
 			} else if (d > 0) {
 				emit(0x7827);						/* ldrb v4, [v1] */
-				emit(0x3700 | (d & 0xff));				/* add v4, v4, #{d} */
+				emit(0x3700 | (d & 0xff));			/* add v4, v4, #{d} */
 				emit(0x7027);						/* strb v4, [v1] */
 			} else if (d < 0) {
 				emit(0x7827);						/* ldrb v4, [v1] */
-				emit(0x3f00 | ((-d) & 0xff));				/* sub v4, v4, #{d} */
+				emit(0x3f00 | ((-d) & 0xff));		/* sub v4, v4, #{d} */
 				emit(0x7027);						/* strb v4, [v1] */
 			}
 		}
@@ -177,23 +181,24 @@ int Q = jitPc;
 		// '<'
 		else if (p[pc] == 62 || p[pc] == 60) {
 			// sequential [><] can optimize
-			// abs(d) > 255 may crash this shcemem
 			int d = 0;
 			while (1) {
 				if (p[pc] == 62) d++;
 				else if (p[pc] == 60) d--;
-				else {
+				else /*if (!isOp(p[pc]) && pc < prog_len)*/ {
 					pc--;
 					break;
 				}
 				pc++;
+				
+				if (d == 255 || d == -255) break;
 			}
 			if (d == 0) {
 				// empty
 			} else if (d > 0) {
 				emit(0x3400 | (d & 0xff));				/* add v1, v1, #{d} */
 			} else if (d < 0) {
-				emit(0x3c00 | ((-d) & 0xff));				/* sub v1, v1, #{d} */
+				emit(0x3c00 | ((-d) & 0xff));			/* sub v1, v1, #{d} */
 			}
 		}
 		// '['
@@ -201,9 +206,11 @@ int Q = jitPc;
 			emit(0x7827);							/* ldrb v4, [v1] */
 			push(emitPc());
 			emit(0x433f);							/* orrs v4, v4 */
-			emit(0xd104);							/* bne l:*/
-			if (emitPc() % 4 == 0) {
+			if (emitPc() % 4 != 0) {
+				emit(0xd104);						/* bne 8 (l:) */
 				emit(0x46c0);						/* nop */
+			} else {
+				emit(0xd103);						/* bne 6 (l:) */
 			}
 			emit(0x4f00);							/* ldr v4, [pc+0] */
 			emit(0x4738);							/* bx v4 */
@@ -215,20 +222,21 @@ int Q = jitPc;
 		// ']'
 		else if (p[pc] == 93) {
 			int ret = pop();
-			unsigned addr = ((emitPc() + 2) << 2) | 1;
-			emitAt(ret + 0, (addr >> 16) & 0xffff);
-			emitAt(ret + 2, addr & 0xffff);
+			unsigned addr = ((emitPc() + 10) << 0) | 1;
 
 			if (emitPc() % 4 == 0) {
+				addr = ((emitPc() + 12) << 0) | 1;
 				emit(0x46c0);						/* nop */
 			}
+			emitAt(ret + 0, addr & 0xffff);
+			emitAt(ret + 2, (addr >> 16) & 0xffff);
+
 			emit(0x4f00);							// ldr v4, [pc+0]
 			emit(0x4738);							// bx v4
 			ret = pop();
-			addr = (ret << 2) | 1;
+			addr = (ret << 0) | 1;
+			emit(addr & 0xffff);
 			emit((addr >> 16) & 0xffff);
-			emit(addr& 0xffff);
-			
 		}
 	}
 	
@@ -239,11 +247,11 @@ int Q = jitPc;
 	emit(0xbcf0);								/* pop {v1,v2,v3,v4} */
 
 	emit(0x4770);								/* bx lr */
-	
+/*	
 	short* i;
-	for (i = Q; i < Q + 40; ++i) printf("%x:", *(short*)i & 0xffff);
+	for (i = Q; i < Q + 40; ++i) printf("[%x]%x:", i, *(short*)i & 0xffff);
 	WAIT_CANCEL;
-	
+*/	
 	beep();
 	typedef void (*funcp)();
 	(*(funcp)((unsigned)jitStart|1))();
