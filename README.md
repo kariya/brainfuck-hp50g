@@ -22,18 +22,23 @@ If brainf*ck code goes to infinite loop, there's no way to interrupt it.
 You might need a paper clip to reset the calculator.
 
 
+## Files
+bin/hpi.hp interpreter
+bin/hpj16.hp jit compiler(thumb version)
+
+
 ## How to compile
 Install hpgcc (see [1]) and do "make bfi.hp" in src/interpreter directory.
-
+Or "make bfjit16.hp" in src/jit directory.
 
 ## Purpose
 The purpose of this work is my exercise of learning ARM programming.
 
 Now I prototyped an JIT compiler successfully with a few brainf*ck code running.
-My aim was partially done but I'll keep brushing it up.
+My aim was achhieved but I'll keep brushing it up.
 
 ### Really JIT?
-The Current version is a kind of 'compile-and-go' style compiler,
+The current version is a kind of 'compile-and-go' style compiler,
 but it shares a lot of ideas with JIT.
 It seems easy to make a trace-based JIT but it is questionable whether to get more speed.
 
