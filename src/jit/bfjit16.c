@@ -159,6 +159,7 @@ int main() {
 				emit(0x7827);						/* ldrb v4, [v1] */
 				emit(0x3f00 | ((-d) & 0xff));				/* sub v4, v4, #{d} */
 				emit(0x7027);						/* strb v4, [v1] */
+			}
 		}
 		// '.'
 		else if (p[pc] == 46) {
