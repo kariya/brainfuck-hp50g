@@ -1,4 +1,4 @@
-# BrainF*ck imlementation for HP50g calculator
+# BrainF*ck implementation for HP50g calculator
 
 ## What's this?
 This is a implementation (currently interpreter done, jit compiler in development) of BrainF*ck language[2] for HP50g calculator.
