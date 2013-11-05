@@ -35,7 +35,7 @@ My aim was partially done but I'll keep brushing it up.
 ### Really JIT?
 The Current version is a kind of 'compile-and-go' style compiler,
 but it shares a lot of ideas with JIT.
-It seems easy to make a trace-based JIT but it is questioable to get more speed.
+It seems easy to make a trace-based JIT but it is questionable whether to get more speed.
 
 
 ## License
