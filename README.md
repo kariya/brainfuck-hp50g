@@ -7,15 +7,15 @@ It's an ARM native code application, not emulated Saturn code.
 
 
 ## Usage
-Copy bin/bfi.hp and data/*.b to HP50g.
+Copy bin/bfi.hp, bin/bfij16.hp and data/*.b to your HP50g.
 
 Push a string of brainf*ck code(*.b) to the calculator stack.
 
 Optionally you can push to the stack another string as input.
 
-Execute the BFI.HP program and you can get the output string on the stack.
+Execute either of the BFI.HP or BFJ16.HP programs and you can get the output string on the stack.
 
-(See also screenshots in the img/screenshot directory)
+(See also my screenshots in the img/screenshot directory)
 
 ## Caution
 If brainf*ck code goes to infinite loop, there's no way to interrupt it.
@@ -36,11 +36,11 @@ Or "make bfjit16.hp" in src/jit directory.
 The purpose of this work is my exercise of learning ARM programming.
 
 Now I prototyped an JIT compiler successfully with a few brainf*ck code running.
-My aim was achhieved but I'll keep brushing it up.
+My aim was achieved but I'll keep brushing it up.
 
 ### Really JIT?
 The current version is a kind of 'compile-and-go' style compiler,
-but it shares a lot of ideas with JIT.
+but it shares a lot of ideas with JIT (dynamic code generation).
 It seems easy to make a trace-based JIT but it is questionable whether to get more speed.
 
 
