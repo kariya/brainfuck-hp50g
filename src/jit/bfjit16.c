@@ -135,17 +135,30 @@ int main() {
 //	emit(0xbcf0);emit(0x4770);emit(0x4770);emit(0x4770);emit(0x4770);
 	
 	for(pc = 0; pc < prog_len; pc++) {
-		// '+'
-		if (p[pc] == 43) {
-			emit(0x7827);							/* ldrb v4, [v1] */
-			emit(0x3701);							/* add v4, v4, #1 */
-			emit(0x7027);							/* strb v4, [v1] */
-		}
-		// '-'
-		else if (p[pc] == 45) {
-			emit(0x7827);							/* ldrb v4, [v1] */
-			emit(0x3f01);							/* sub v4, v4, #1 */
-			emit(0x7027);							/* strb v4, [v1] */
+		// '+', '-'
+		if (p[pc] == 43 || p[pc] == 45) {
+			// sequential [+-] can optimize
+			// abs(d) > 255 may crash this shcemem
+			int d = 0;
+			while (1) {
+				if (p[pc] == 43) d++;
+				else if (p[pc] == 43) d--;
+				else {
+					pc--;
+					break;
+				}
+				pc++;
+			}
+			if (d == 0) {
+				// empty
+			} else if (d > 0) {
+				emit(0x7827);						/* ldrb v4, [v1] */
+				emit(0x3700 | (d & 0xff));				/* add v4, v4, #{d} */
+				emit(0x7027);						/* strb v4, [v1] */
+			} else if (d < 0) {
+				emit(0x7827);						/* ldrb v4, [v1] */
+				emit(0x3f00 | ((-d) & 0xff));				/* sub v4, v4, #{d} */
+				emit(0x7027);						/* strb v4, [v1] */
 		}
 		// '.'
 		else if (p[pc] == 46) {
@@ -160,12 +173,27 @@ int main() {
 			emit(0x7027);							/* strb v4, [v1] */
 		}
 		// '>'
-		else if (p[pc] == 62) {
-			emit(0x3401);							/* add v1, v1, #1 */
-		}
 		// '<'
-		else if (p[pc] == 60) {
-			emit(0x3c01); 							/* sub v1, v1, #1 */
+		else if (p[pc] == 62 || p[pc] == 60) {
+			// sequential [><] can optimize
+			// abs(d) > 255 may crash this shcemem
+			int d = 0;
+			while (1) {
+				if (p[pc] == 62) d++;
+				else if (p[pc] == 60) d--;
+				else {
+					pc--;
+					break;
+				}
+				pc++;
+			}
+			if (d == 0) {
+				// empty
+			} else if (d > 0) {
+				emit(0x3400 | (d & 0xff));				/* add v1, v1, #{d} */
+			} else if (d < 0) {
+				emit(0x3c00 | (d & 0xff));				/* sub v1, v1, #{d} */
+			}
 		}
 		// '['
 		else if (p[pc] == 91) {
