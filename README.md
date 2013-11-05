@@ -1,7 +1,7 @@
 # BrainF*ck implementation for HP50g calculator
 
 ## What's this?
-This is a implementation (currently interpreter done, jit compiler in development) of BrainF*ck language[2] for HP50g calculator.
+This is a implementation (interpreter, jit compiler) of BrainF*ck language[2] for HP50g calculator.
 It's an ARM native code application, not emulated Saturn code.
 (See [4] if you are looking for SysRPL version.)
 
