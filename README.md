@@ -3,6 +3,7 @@
 ## What's this?
 This is a implementation (currently interpreter done, jit compiler in development) of BrainF*ck language[2] for HP50g calculator.
 It's an ARM native code application, not emulated Saturn code.
+(See [4] if you are looking for SysRPL version.)
 
 
 ## Usage
@@ -31,6 +32,11 @@ The purpose of this work is my exercise of learning ARM programming.
 Now I prototyped an JIT compiler successfully with a few brainf*ck code running.
 My aim was partially done but I'll keep brushing it up.
 
+### Really JIT?
+The Current version is a kind of 'compile-and-go' style compiler,
+but it shares a lot of ideas with JIT.
+It seems easy to make a trace-based JIT but it is questioable to get more speed.
+
 
 ## License
 GPL
@@ -43,3 +49,4 @@ GPL
 
 [3] http://stackoverflow.com/questions/4461609/native-self-modifying-code-on-android
 
+[4] https://groups.google.com/forum/#!searchin/comp.sys.hp48/brainfuck/comp.sys.hp48/vjbBV5OKxjY/EKysmIrSMuoJ
