@@ -38,6 +38,11 @@ but it shares a lot of ideas with JIT.
 It seems easy to make a trace-based JIT but it is questionable whether to get more speed.
 
 
+## TODO
+I have a plain, in my mind, to implement a Forth interpreter and (JIT) compiler on HP50g.
+
+
+
 ## License
 GPL
 
