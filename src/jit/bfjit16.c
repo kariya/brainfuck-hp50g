@@ -218,7 +218,7 @@ int main() {
 					emit(0xd104);					/* bne 8 (l:) */
 					emit(0x4b01);					/* ldr r3, [pc+#4] */
 					emit(0x4738);					/* bx r3 */
-					emit(0x46c0);					/* nop */
+				emit(0x46c0);					/* nop */
 					push(emit(0x46c0));				/* nop */
 					emit(0x46c0);					/* nop */
 				} else {
@@ -255,33 +255,39 @@ int main() {
 		else if (p[pc] == 93) {
 			int addr = pop();
 			int ret = pop();
-			if (emitPc() % 4 == 0) {
-				if (!v4Opt) {
-					emit(0x7827);					// ldr v4, [v1]
-					emit(0x4b01);					// ldr r3, [pc + #4]
-					emit(0x4718);					// bx r3 
-					emit(0x46c0);					/* nop */
-					addr = emit((ret | 1) & 0xffff);
-					emit(((ret >> 16) | 1) & 0xffff);
-				} else {
-					emit(0x4b00);					// ldr r3, [pc]
-					emit(0x4718);					// bx r3 
-					addr = emit((ret | 1) & 0xffff);
-					emit(((ret >> 16) | 1) & 0xffff);
-				}
+			int offset = (ret - emitPc() - 8) >> 2;
+			if (-offset <= 0xff) {
+				if (!v4Opt) emit(0x7827);				// ldr v4, [v1]
+				emit(0xe700 | (offset & 0xff));			// b #{offset}	
 			} else {
-				if (!v4Opt) {
-					emit(0x7827);					// ldr v4, [v1]
-					emit(0x4b00);					// ldr r3, [pc + #0]
-					emit(0x4718);					// bx r3 
-					addr = emit((ret | 1) & 0xffff);
-					emit(((ret >> 16) | 1) & 0xffff);
+				if (emitPc() % 4 == 0) {
+					if (!v4Opt) {
+						emit(0x7827);					// ldr v4, [v1]
+						emit(0x4b01);					// ldr r3, [pc + #4]
+						emit(0x4718);					// bx r3 
+						emit(0x46c0);					/* nop */
+						addr = emit((ret | 1) & 0xffff);
+						emit(((ret >> 16) | 1) & 0xffff);
+					} else {
+						emit(0x4b00);					// ldr r3, [pc]
+						emit(0x4718);					// bx r3 
+						addr = emit((ret | 1) & 0xffff);
+						emit(((ret >> 16) | 1) & 0xffff);
+					}
 				} else {
-					emit(0x4b01);					// ldr r3, [pc+#4]
-					emit(0x4718);					// bx r3 
-					emit(0x46c0);					/* nop */
-					addr = emit((ret | 1) & 0xffff);
-					emit(((ret >> 16) | 1) & 0xffff);
+					if (!v4Opt) {
+						emit(0x7827);					// ldr v4, [v1]
+						emit(0x4b00);					// ldr r3, [pc + #0]
+						emit(0x4718);					// bx r3 
+						addr = emit((ret | 1) & 0xffff);
+						emit(((ret >> 16) | 1) & 0xffff);
+					} else {
+						emit(0x4b01);					// ldr r3, [pc+#4]
+						emit(0x4718);					// bx r3 
+						emit(0x46c0);					/* nop */
+						addr = emit((ret | 1) & 0xffff);
+						emit(((ret >> 16) | 1) & 0xffff);
+					}
 				}
 			}
 			int ret2 = (emitPc() + 2) | 1;
