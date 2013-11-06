@@ -42,7 +42,7 @@
 
 #include "hpgcc49.h"
 
-#define out(c) (*pout++ = c)
+#define out(c) (*pout++ = (c))
 #define in() (*pin++)
 
 
@@ -53,20 +53,16 @@ int main() {
 	char buf_in[1024*32], *pin = &buf_in;
 	char* p;
 
-	if (sat_stack_depth() == 1) {
-		p = sat_stack_pop_string_alloc();
-		prog_len = strlen(p);
+	if (sat_stack_depth() > 1) {
 	} else {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
 		strcat(buf_in, "\n");
-		p = sat_stack_pop_string_alloc();
-		prog_len = strlen(p);
 	}
+	p = sat_stack_pop_string_alloc();
+	prog_len = strlen(p);
 
 	sys_slowOff();
 	
-	pc = 0;
-
 	for(xc = 0; xc < 32768; xc++)
 		x[xc] = 0;
 
@@ -129,3 +125,4 @@ int main() {
 	
 	return 0;
 }
+
