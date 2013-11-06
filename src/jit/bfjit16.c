@@ -42,12 +42,13 @@
 
 #include "hpgcc49.h"
 
-#define out(c) (*pout++ = c)
+#define out(c) (*pout++ = (c))
 #define in() (*pin++)
 
+// fixed size for now
 #define BUF_SIZE (1024*16)
-typedef unsigned short op_t;
 
+typedef unsigned short op_t;
 static op_t jit[BUF_SIZE];
 op_t* jitPc = jit;
 op_t* jitStart = jit;
@@ -56,16 +57,16 @@ int emit(op_t op) {
 	*jitPc++ = op;
 	return ((int) jitPc) - sizeof(short);
 }
-
 void emitAt(int addr, op_t op) {
 	*(short*)addr = op;
 }
-
 int emitPc() {
 	return ((int) jitPc) - sizeof(short);
 }
 
-int stack[256];
+/* for backpatch */
+int stack[256]; // []'s nest depth must < 256 (maybe it's ok)
+// TODO unmatched [] handling: eg. ++++][.  (for now maybe crashes)
 int* stackp = &stack[0];
 #define push(x) (*stackp++ = (x))
 #define pop()   (*--stackp)
@@ -75,20 +76,17 @@ int* stackp = &stack[0];
 
 int main() {
 	int pc, xc, prog_len;
-	int x[BUF_SIZE];
+	int x[BUF_SIZE], p[BUF_SIZE];
 	char buf_out[BUF_SIZE], *pout = &buf_out[0];
 	char buf_in[BUF_SIZE], *pin = &buf_in[0];
-	char* p;
 
-	if (sat_stack_depth() == 1) {
-		p = sat_stack_pop_string_alloc();
-		prog_len = strlen(p);
-	} else {
+	if (sat_stack_depth() > 1) {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
 		strcat(buf_in, "\n");
-		p = sat_stack_pop_string_alloc();
-		prog_len = strlen(p);
 	}
+	strcpy(p, sat_stack_pop_string_alloc());
+	strcat(p, ">+"); // dummy
+	prog_len = strlen(p);
 
 	sys_slowOff();
 	
@@ -100,7 +98,7 @@ int main() {
 	xc = 0;
 	
 
-	emit(0xb4f0); 									/* push {v1,v2,v3,v4} */
+	emit(0xb4f8); 									/* push {r3,v1,v2,v3,v4} */
 	// v1 := ${x}
 	emit(0x2400 | ((int)x & 0xff));					/* movs v1, ${x & 0x000000ff} */
 	emit(0x2700 | (((int)x >> 8) & 0xff));		 	/* movs v4, ${(x>>8) & 0x000000ff} */
@@ -138,16 +136,16 @@ int main() {
 
 //int Q = jitPc;
 	
-	int v4Opt = 0;
+	int v4Opt = 0; /* 1=v4 is [v1] 0=otherwise */
 	for(pc = 0; pc < prog_len; pc++) {
 		// '+', '-'
 		if (p[pc] == 43 || p[pc] == 45) {
-			// sequential [+-] can optimize
+			// sequence of +- can optimize
 			int d = 0;
 			while (1) {
 				if (p[pc] == 43) d++;
 				else if (p[pc] == 45) d--;
-				else /*if (!isOp(p[pc]) && pc < prog_len)*/ {
+				else if (!isOp(p[pc]) && pc < prog_len) {
 					pc--;
 					break;
 				}
@@ -188,12 +186,12 @@ int main() {
 		// '>'
 		// '<'
 		else if (p[pc] == 62 || p[pc] == 60) {
-			// sequential [><] can optimize
+			// sequence of >< can optimize
 			int d = 0;
 			while (1) {
 				if (p[pc] == 62) d++;
 				else if (p[pc] == 60) d--;
-				else /*if (!isOp(p[pc]) && pc < prog_len)*/ {
+				else if (!isOp(p[pc]) && pc < prog_len) {
 					pc--;
 					break;
 				}
@@ -213,41 +211,84 @@ int main() {
 		}
 		// '['
 		else if (p[pc] == 91) {
-			push(emit(0x7827));						/* ldrb v4, [v1] */
-			emit(0x433f);							/* orrs v4, v4 */
-			int addr = emit(0xd103);				/* bne 6 (l:) */
-			int addr2 = emit(0x4f00);							/* ldr v4, [pc+0] */
-			emit(0x4738);							/* bx v4 */
 			if (emitPc() % 4 == 0) {
-				emit(0x46c0);						/* nop */
-				emitAt(addr, 0xd104);				/* bne 8 */
-				emitAt(addr2, 0x4f01);				// ldr v4, [pc, #4]
+				if (!v4Opt) {
+					emit(0x7827);					// ldr v4, [v1]
+					push(emit(0x433f));				/* orrs v4, v4 */
+					emit(0xd104);					/* bne 8 (l:) */
+					emit(0x4b01);					/* ldr r3, [pc+#4] */
+					emit(0x4738);					/* bx r3 */
+					emit(0x46c0);					/* nop */
+					push(emit(0x46c0));				/* nop */
+					emit(0x46c0);					/* nop */
+				} else {
+					push(emit(0x433f));				/* orrs v4, v4 */
+					emit(0xd103);					/* bne 6 (l:) */
+					emit(0x4b00);					/* ldr r3, [pc+0] */
+					emit(0x4738);					/* bx r3 */
+					push(emit(0x46c0));				/* nop */
+					emit(0x46c0);					/* nop */
+				}
+			} else {
+				if (!v4Opt) {
+					emit(0x7827);					// ldr v4, [v1]
+					push(emit(0x433f));				/* orrs v4, v4 */
+					emit(0xd103);					/* bne 6 (l:) */
+					emit(0x4b00);					/* ldr r3, [pc+#0] */
+					emit(0x4738);					/* bx r3 */
+					push(emit(0x46c0));				/* nop */
+					emit(0x46c0);					/* nop */
+				} else {
+					push(emit(0x433f));				/* orrs v4, v4 */
+					emit(0xd103);					/* bne 6 (l:) */
+					emit(0x4b01);					/* ldr r3, [pc+#4] */
+					emit(0x4738);					/* bx r3 */
+					emit(0x46c0);					/* nop */
+					push(emit(0x46c0));				/* nop */
+					emit(0x46c0);					/* nop */
+				}
 			}
-			push(emit(0x46c0));						/* nop */
-			emit(0x46c0);							/* nop */
 													/* l: */
-			v4Opt = 0;
+			v4Opt = 1;
 		}
 		// ']'
 		else if (p[pc] == 93) {
+			int addr = pop();
 			int ret = pop();
-			unsigned addr = ((emitPc() + 10) << 0) | 1;
-			int addr2 = emit(0x4f00);				// ldr v4, [pc+0]
-			int pc = emit(0x4738);					// bx v4
-			if (pc % 4 == 0) {
-				addr += 2;
-				emit(0x46c0);						/* nop */
-				emitAt(addr2, 0x4f01);				// ldr v4, [pc + #4]
+			if (emitPc() % 4 == 0) {
+				if (!v4Opt) {
+					emit(0x7827);					// ldr v4, [v1]
+					emit(0x4b01);					// ldr r3, [pc + #4]
+					emit(0x4718);					// bx r3 
+					emit(0x46c0);					/* nop */
+					addr = emit((ret | 1) & 0xffff);
+					emit(((ret >> 16) | 1) & 0xffff);
+				} else {
+					emit(0x4b00);					// ldr r3, [pc]
+					emit(0x4718);					// bx r3 
+					addr = emit((ret | 1) & 0xffff);
+					emit(((ret >> 16) | 1) & 0xffff);
+				}
+			} else {
+				if (!v4Opt) {
+					emit(0x7827);					// ldr v4, [v1]
+					emit(0x4b00);					// ldr r3, [pc + #0]
+					emit(0x4718);					// bx r3 
+					addr = emit((ret | 1) & 0xffff);
+					emit(((ret >> 16) | 1) & 0xffff);
+				} else {
+					emit(0x4b01);					// ldr r3, [pc+#4]
+					emit(0x4718);					// bx r3 
+					emit(0x46c0);					/* nop */
+					addr = emit((ret | 1) & 0xffff);
+					emit(((ret >> 16) | 1) & 0xffff);
+				}
 			}
-			emitAt(ret + 0, addr & 0xffff);
-			emitAt(ret + 2, (addr >> 16) & 0xffff);
+			int ret2 = (emitPc() + 2) | 1;
+			emitAt(addr + 0, ret2 & 0xffff);
+			emitAt(addr + 2, (ret2 >> 16) & 0xffff);
 
-			ret = pop();
-			addr = (ret << 0) | 1;
-			emit(addr & 0xffff);
-			emit((addr >> 16) & 0xffff);
-
-			v4Opt = 0;
+			v4Opt = 1;
 		}
 	}
 	
@@ -255,9 +296,9 @@ int main() {
 	emit(0x7037); 								/* strb v4, [v3] */
 	emit(0x3601);								/* add v3, v3, #1 */
 	
-	emit(0xbcf0);								/* pop {v1,v2,v3,v4} */
-
+	emit(0xbcf8);								/* pop {r3,v1,v2,v3,v4} */
 	emit(0x4770);								/* bx lr */
+
 /*	
 	short* i;
 	for (i = Q; i < Q + 40; ++i) printf("[%x]%x:", i, *(short*)i & 0xffff);
