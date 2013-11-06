@@ -63,3 +63,7 @@ GPL
 [3] http://stackoverflow.com/questions/4461609/native-self-modifying-code-on-android
 
 [4] https://groups.google.com/forum/#!searchin/comp.sys.hp48/brainfuck/comp.sys.hp48/vjbBV5OKxjY/EKysmIrSMuoJ
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/kariya/brainfuck-hp50g/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
