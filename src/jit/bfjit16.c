@@ -40,28 +40,34 @@
  * Category:      Software Development > Programming languages
  */
 
+/* modified by kairya@kariya.cc */
+
 #include "hpgcc49.h"
+
+//#define DBG
 
 #define out(c) (*pout++ = (c))
 #define in() (*pin++)
 
-// fixed size for now
+// fixed buffer size for now
 #define BUF_SIZE (1024*16)
 
+/* JIT code and emitting procedures */
 typedef unsigned short op_t;
 static op_t jit[BUF_SIZE];
+#define emitAt(addr, op) (*(op_t*)(addr) = (op))
+#define emitPc() (((int) jitPc) - sizeof(short))
 op_t* jitPc = jit;
 op_t* jitStart = jit;
-
 int emit(op_t op) {
 	*jitPc++ = op;
-	return ((int) jitPc) - sizeof(short);
+	return emitPc();
 }
-void emitAt(int addr, op_t op) {
-	*(short*)addr = op;
-}
-int emitPc() {
-	return ((int) jitPc) - sizeof(short);
+int emitWord(int word) {
+	// assumes little endian
+	int addr = emit((op_t)(word & 0xffff));
+	emit((op_t)((word >> 16) & 0xffff));
+	return addr;
 }
 
 /* for backpatch */
@@ -76,68 +82,44 @@ int* stackp = &stack[0];
 
 int main() {
 	int pc, xc, prog_len;
-	int x[BUF_SIZE], p[BUF_SIZE];
-	char buf_out[BUF_SIZE], *pout = &buf_out[0];
-	char buf_in[BUF_SIZE], *pin = &buf_in[0];
+	int x[BUF_SIZE];
+	char buf_out[BUF_SIZE], *pout = buf_out;
+	char buf_in[BUF_SIZE], *pin = buf_in;
+	char* p;
 
 	if (sat_stack_depth() > 1) {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
 		strcat(buf_in, "\n");
 	}
-	strcpy(p, sat_stack_pop_string_alloc());
-	strcat(p, ">+"); // dummy
+	p = sat_stack_pop_string_alloc();
 	prog_len = strlen(p);
 
 	sys_slowOff();
 	
-	pc = 0;
-
-	for(xc = 0; xc < BUF_SIZE; xc++)
+	for(xc = 0; xc < BUF_SIZE; xc++) {
 		x[xc] = 0;
-
+		buf_out[xc] = 0;
+	}
 	xc = 0;
 	
-
 	emit(0xb4f8); 									/* push {r3,v1,v2,v3,v4} */
+	emit(0x46c0);									/* nop */
 	// v1 := ${x}
-	emit(0x2400 | ((int)x & 0xff));					/* movs v1, ${x & 0x000000ff} */
-	emit(0x2700 | (((int)x >> 8) & 0xff));		 	/* movs v4, ${(x>>8) & 0x000000ff} */
-	emit(0x023f);									/* lsls v4, v4, #8 */
-	emit(0x433c);									/* orrs v1, v4 */
-	emit(0x2700 | (((int)x >> 16) & 0xff));		 	/* movs v4, ${(x>>16) & 0x000000ff} */
-	emit(0x043f);									/* lsls v4, v4, #16 */
-	emit(0x433c);									/* orrs v1, v4 */
-	emit(0x2700 | (((int)x >> 24) & 0xff));		 	/* movs v4, ${(x>>24) & 0x000000ff} */
-	emit(0x063f);									/* lsls v4, v4, #24 */
-	emit(0x433c);									/* orrs v1, v4 */	
+	emit(0x4c00); 									// ldr v1, [pc]
+	emit(0xe001); 									// b r#1
+    emitWord((int)x);								// .word x 
 	// v2 := ${pin}
-	emit(0x2500 | ((int)pin & 0xff));				/* movs v2, ${pin & 0x000000ff} */
-	emit(0x2700 | (((int)pin >> 8) & 0xff));		/* movs v4, ${(pin>>8) & 0x000000ff} */
-	emit(0x023f);									/* lsls v4, v4, #8 */
-	emit(0x433d);									/* orrs v2, v4 */
-	emit(0x2700 | (((int)pin >> 16) & 0xff));		/* movs v4, ${(pin>>16) & 0x000000ff} */
-	emit(0x043f);									/* lsls v4, v4, #16 */
-	emit(0x433d);									/* orrs v2, v4 */
-	emit(0x2700 | (((int)pin >> 24) & 0xff));		/* movs v4, ${(pin>>24) & 0x000000ff} */
-	emit(0x063f);									/* lsls v4, v4, #24 */
-	emit(0x433d);									/* orrs v2, v4 */	
+	emit(0x4d00); 									// ldr v2, [pc]
+	emit(0xe001); 									// b r#1
+    emitWord((int)pin);								// .word pin 
 	// v3 := ${pout}
-	emit(0x2600 | ((int)pout & 0xff));				/* movs v3, ${pout & 0xff} */
-	emit(0x2700 | (((int)pout >> 8) & 0xff));		/* movs v4, ${(pout>>8) & 0xff} */
-	emit(0x023f);									/* lsls v4, v4, #8 */
-	emit(0x433e);									/* orrs v3, v4 */
-	emit(0x2700 | (((int)pout >> 16) & 0xff));		/* movs v4, ${(pout>>16) & 0xff} */
-	emit(0x043f);									/* lsls v4, v4, #16 */
-	emit(0x433e);									/* orrs v3, v4 */
-	emit(0x2700 | (((int)pout >> 24) & 0xff));		/* movs v4, ${(pout>>24) & 0xff} */
-	emit(0x063f);									/* lsls v4, v4, #24 */
-	emit(0x433e);									/* orrs v3, v4 */	
-	
+	emit(0x4e00);									 // ldr v3, [pc]
+	emit(0xe001); 									// b r#1
+    emitWord((int)pout);							// .word pout 
 
-//int Q = jitPc;
 	
-	int v4Opt = 0; /* 1=v4 is [v1] 0=otherwise */
-	for(pc = 0; pc < prog_len; pc++) {
+	int v4Opt = 0; /* =1 ifv4 and [v1] are the same, =0 otherwise */
+	for (pc = 0; pc < prog_len; pc++) {
 		// '+', '-'
 		if (p[pc] == 43 || p[pc] == 45) {
 			// sequence of +- can optimize
@@ -145,22 +127,22 @@ int main() {
 			while (1) {
 				if (p[pc] == 43) d++;
 				else if (p[pc] == 45) d--;
-				else if (!isOp(p[pc]) && pc < prog_len) {
+				else { //if (!isOp(p[pc]) || pc > prog_len) {
 					pc--;
 					break;
 				}
 
-				pc++;
 				if (d == 255 || d == -255) break;
+				pc++;
 			}
 			if (d == 0) {
 				// empty
 			} else if (d > 0) {
-				emit(0x7827);						/* ldrb v4, [v1] */
+				if (!v4Opt) emit(0x7827);			/* ldrb v4, [v1] */
 				emit(0x3700 | (d & 0xff));			/* add v4, v4, #{d} */
 				emit(0x7027);						/* strb v4, [v1] */
 			} else if (d < 0) {
-				emit(0x7827);						/* ldrb v4, [v1] */
+				if (!v4Opt) emit(0x7827);			/* ldrb v4, [v1] */
 				emit(0x3f00 | ((-d) & 0xff));		/* sub v4, v4, #{d} */
 				emit(0x7027);						/* strb v4, [v1] */
 			}
@@ -182,7 +164,7 @@ int main() {
 			emit(0x7027);							/* strb v4, [v1] */
 
 			v4Opt = 1;
-		}
+		}	
 		// '>'
 		// '<'
 		else if (p[pc] == 62 || p[pc] == 60) {
@@ -191,13 +173,12 @@ int main() {
 			while (1) {
 				if (p[pc] == 62) d++;
 				else if (p[pc] == 60) d--;
-				else if (!isOp(p[pc]) && pc < prog_len) {
+				else { //if (!isOp(p[pc]) || pc > prog_len) {
 					pc--;
 					break;
 				}
-				pc++;
-				
 				if (d == 255 || d == -255) break;
+				pc++;
 			}
 			if (d == 0) {
 				// empty
@@ -211,23 +192,21 @@ int main() {
 		}
 		// '['
 		else if (p[pc] == 91) {
-			if (emitPc() % 4 == 0) {
+			if (emitPc() % 4 != 0) {
 				if (!v4Opt) {
 					emit(0x7827);					// ldr v4, [v1]
 					push(emit(0x433f));				/* orrs v4, v4 */
 					emit(0xd104);					/* bne 8 (l:) */
-					emit(0x4b01);					/* ldr r3, [pc+#4] */
-					emit(0x4738);					/* bx r3 */
-				emit(0x46c0);					/* nop */
-					push(emit(0x46c0));				/* nop */
+					emit(0X4b01);					/* ldr r3, [pc+#4] */
+					emit(0x4718);					/* bx r3 */
 					emit(0x46c0);					/* nop */
+					push(emitWord(0));				/* .word*/
 				} else {
 					push(emit(0x433f));				/* orrs v4, v4 */
 					emit(0xd103);					/* bne 6 (l:) */
 					emit(0x4b00);					/* ldr r3, [pc+0] */
-					emit(0x4738);					/* bx r3 */
-					push(emit(0x46c0));				/* nop */
-					emit(0x46c0);					/* nop */
+					emit(0x4718);					/* bx r3 */
+					push(emitWord(0));				/* .word*/
 				}
 			} else {
 				if (!v4Opt) {
@@ -235,17 +214,15 @@ int main() {
 					push(emit(0x433f));				/* orrs v4, v4 */
 					emit(0xd103);					/* bne 6 (l:) */
 					emit(0x4b00);					/* ldr r3, [pc+#0] */
-					emit(0x4738);					/* bx r3 */
-					push(emit(0x46c0));				/* nop */
-					emit(0x46c0);					/* nop */
+					emit(0x4718);					/* bx r3 */
+					push(emitWord(0));				/* .word*/
 				} else {
 					push(emit(0x433f));				/* orrs v4, v4 */
-					emit(0xd103);					/* bne 6 (l:) */
+					emit(0xd104);					/* bne 8 (l:) */
 					emit(0x4b01);					/* ldr r3, [pc+#4] */
-					emit(0x4738);					/* bx r3 */
+					emit(0x4718);					/* bx r3 */
 					emit(0x46c0);					/* nop */
-					push(emit(0x46c0));				/* nop */
-					emit(0x46c0);					/* nop */
+					push(emitWord(0));				/* .word*/
 				}
 			}
 													/* l: */
@@ -255,38 +232,37 @@ int main() {
 		else if (p[pc] == 93) {
 			int addr = pop();
 			int ret = pop();
-			int offset = (ret - emitPc() - 8) >> 2;
-			if (-offset <= 0xff) {
-				if (!v4Opt) emit(0x7827);				// ldr v4, [v1]
-				emit(0xe700 | (offset & 0xff));			// b #{offset}	
+			int offset = (ret - emitPc() - 6) >> 1;
+			if (-offset <= 0x7ff) {
+				if (!v4Opt) {
+						emit(0x7827);				// ldr v4, [v1]
+						offset--;
+				}
+				emit(0xe000 | (offset & 0x7ff));		// b #{offset}	
 			} else {
-				if (emitPc() % 4 == 0) {
+				if (emitPc() % 4 != 0) {
 					if (!v4Opt) {
 						emit(0x7827);					// ldr v4, [v1]
 						emit(0x4b01);					// ldr r3, [pc + #4]
 						emit(0x4718);					// bx r3 
 						emit(0x46c0);					/* nop */
-						addr = emit((ret | 1) & 0xffff);
-						emit(((ret >> 16) | 1) & 0xffff);
+						emitWord(ret | 1);				// .word (ret|1)
 					} else {
 						emit(0x4b00);					// ldr r3, [pc]
 						emit(0x4718);					// bx r3 
-						addr = emit((ret | 1) & 0xffff);
-						emit(((ret >> 16) | 1) & 0xffff);
+						emitWord(ret | 1);				// .word (ret|1)
 					}
 				} else {
 					if (!v4Opt) {
 						emit(0x7827);					// ldr v4, [v1]
 						emit(0x4b00);					// ldr r3, [pc + #0]
 						emit(0x4718);					// bx r3 
-						addr = emit((ret | 1) & 0xffff);
-						emit(((ret >> 16) | 1) & 0xffff);
+						emitWord(ret | 1);				// .word (ret|1)
 					} else {
 						emit(0x4b01);					// ldr r3, [pc+#4]
 						emit(0x4718);					// bx r3 
 						emit(0x46c0);					/* nop */
-						addr = emit((ret | 1) & 0xffff);
-						emit(((ret >> 16) | 1) & 0xffff);
+						emitWord(ret | 1);				// .word (ret|1)
 					}
 				}
 			}
@@ -298,6 +274,7 @@ int main() {
 		}
 	}
 	
+	// put('\0') as output string terminator
 	emit(0x2700); 								/* mov v4, #0 */
 	emit(0x7037); 								/* strb v4, [v3] */
 	emit(0x3601);								/* add v3, v3, #1 */
@@ -305,11 +282,22 @@ int main() {
 	emit(0xbcf8);								/* pop {r3,v1,v2,v3,v4} */
 	emit(0x4770);								/* bx lr */
 
-/*	
-	short* i;
-	for (i = Q; i < Q + 40; ++i) printf("[%x]%x:", i, *(short*)i & 0xffff);
-	WAIT_CANCEL;
-*/	
+#ifdef DBG
+	int i;
+	char *bb = malloc(8*1024*2), bbb[16];
+	strcpy(bb, "");
+	for (i = 0; i < BUF_SIZE; ++i) { 
+		itoa(jit[i], bbb, 16);
+		strcat(bb, bbb);
+		strcat(bb, "@");
+		itoa(&jit[i], bbb, 16);
+		strcat(bb, bbb);
+		strcat(bb, "\n");
+		if (jit[i] == 0) break;
+	}
+	sat_stack_push_string(bb);
+#endif
+
 	beep();
 	typedef void (*funcp)();
 	(*(funcp)((unsigned)jitStart|1))();			// 1 means the callee is thumb code
@@ -321,3 +309,4 @@ int main() {
 	
 	return 0;
 }
+
