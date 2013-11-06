@@ -40,6 +40,8 @@
  * Category:      Software Development > Programming languages
  */
 
+/* modified by kariya@kariya.cc */
+
 #include "hpgcc49.h"
 
 #define out(c) (*pout++ = (c))
