@@ -23,9 +23,9 @@ You might need a paper clip to reset the calculator.
 
 
 ## Files
-bin/hpi.hp interpreter
+bin/bfi.hp interpreter
 
-bin/hpj16.hp jit compiler(thumb version)
+bin/bfj16.hp jit compiler(thumb version)
 
 
 ## How to compile
