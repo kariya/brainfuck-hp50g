@@ -76,9 +76,26 @@ int stack[256]; // []'s nest depth must < 256 (maybe it's ok)
 int* stackp = &stack[0];
 #define push(x) (*stackp++ = (x))
 #define pop()   (*--stackp)
+#define top(n)   (*(stackp-(n)))
 
-#define isOp(c) ((c)=='+'||(c)=='-'||(c)=='<'||(c)=='>'||(c)=='.'||(c)==','||(c)=='['||(c)==']')
+//#define isOp(c) ((c)=='+'||(c)=='-'||(c)=='<'||(c)=='>'||(c)=='.'||(c)==','||(c)=='['||(c)==']')
 
+struct loopInfo {
+	int cur;
+	int max;
+	int min;
+	int known;
+};
+
+#define MAX(a,b) ((a)>=(b)?(a):(b))
+#define MIN(a,b) ((a)<(b)?(a):(b))
+
+struct loopInfo* newInfo() {
+	struct loopInfo* info = malloc(sizeof(struct loopInfo));
+	info->cur = info->max = info->min = 0;
+	info->known = -1;
+	return info;
+}
 
 int main() {
 	int pc, xc, prog_len;
@@ -107,18 +124,19 @@ int main() {
 	// v1 := ${x}
 	emit(0x4c00); 									// ldr v1, [pc]
 	emit(0xe001); 									// b r#1
-    emitWord((int)x);								// .word x 
+	emitWord((int)x);								// .word x 
 	// v2 := ${pin}
 	emit(0x4d00); 									// ldr v2, [pc]
 	emit(0xe001); 									// b r#1
-    emitWord((int)pin);								// .word pin 
+	emitWord((int)pin);								// .word pin 
 	// v3 := ${pout}
-	emit(0x4e00);									 // ldr v3, [pc]
+	emit(0x4e00);									// ldr v3, [pc]
 	emit(0xe001); 									// b r#1
-    emitWord((int)pout);							// .word pout 
+	emitWord((int)pout);							// .word pout 
 
 	
-	int v4Opt = 0; /* =1 ifv4 and [v1] are the same, =0 otherwise */
+	int v4Opt = 0; /* =1 ifv4 and [v1] are the same value, =0 otherwise */
+	push((int) newInfo());
 	for (pc = 0; pc < prog_len; pc++) {
 		// '+', '-'
 		if (p[pc] == 43 || p[pc] == 45) {
@@ -189,86 +207,99 @@ int main() {
 				emit(0x3c00 | ((-d) & 0xff));			/* sub v1, v1, #{d} */
 				v4Opt = 0;
 			}
+			struct loopInfo* info = (struct loopInfo*) top(1);
+			info->cur += d;
+			info->max = MAX(info->max, info->cur);
+			info->min = MIN(info->min, info->cur);
 		}
 		// '['
 		else if (p[pc] == 91) {
 			if (emitPc() % 4 != 0) {
-				if (!v4Opt) {
+				if (!v4Opt) { 
 					emit(0x7827);					// ldr v4, [v1]
-					push(emit(0x433f));				/* orrs v4, v4 */
-					emit(0xd104);					/* bne 8 (l:) */
-					emit(0X4b01);					/* ldr r3, [pc+#4] */
-					emit(0x4718);					/* bx r3 */
-					emit(0x46c0);					/* nop */
-					push(emitWord(0));				/* .word*/
-				} else {
-					push(emit(0x433f));				/* orrs v4, v4 */
-					emit(0xd103);					/* bne 6 (l:) */
-					emit(0x4b00);					/* ldr r3, [pc+0] */
-					emit(0x4718);					/* bx r3 */
-					push(emitWord(0));				/* .word*/
-				}
-			} else {
-				if (!v4Opt) {
-					emit(0x7827);					// ldr v4, [v1]
-					push(emit(0x433f));				/* orrs v4, v4 */
-					emit(0xd103);					/* bne 6 (l:) */
-					emit(0x4b00);					/* ldr r3, [pc+#0] */
-					emit(0x4718);					/* bx r3 */
-					push(emitWord(0));				/* .word*/
-				} else {
-					push(emit(0x433f));				/* orrs v4, v4 */
-					emit(0xd104);					/* bne 8 (l:) */
 					emit(0x4b01);					/* ldr r3, [pc+#4] */
 					emit(0x4718);					/* bx r3 */
 					emit(0x46c0);					/* nop */
-					push(emitWord(0));				/* .word*/
+					push(emitWord(0));				/* .word */
+				} else {
+					emit(0x4b00);					/* ldr r3, [pc+#0] */
+					emit(0x4718);					/* bx r3 */
+					push(emitWord(0));				/* .word */
+				}
+			} else {
+				if (!v4Opt) { 
+					emit(0x7827);					// ldr v4, [v1]
+					emit(0x4b00);					/* ldr r3, [pc+#0] */
+					emit(0x4718);					/* bx r3 */
+					push(emitWord(0));				/* .word */
+				} else {
+					emit(0x4b01);					/* ldr r3, [pc+#4] */
+					emit(0x4718);					/* bx r3 */
+					emit(0x46c0);					/* nop */
+					push(emitWord(0));				/* .word */
 				}
 			}
 													/* l: */
+			push((int) newInfo());
 			v4Opt = 1;
 		}
 		// ']'
 		else if (p[pc] == 93) {
-			int addr = pop();
-			int ret = pop();
-			int offset = (ret - emitPc() - 6) >> 1;
-			if (-offset <= 0x7ff) {
+			struct loopInfo* info = (struct loopInfo*) pop();
+			if (info->cur == 0 && info->known == -1) info->known = 1;
+			else {
+				info->known = 0;
+				((struct loopInfo*) top(1+1))->known = 0;
+			}
+			printf("[%d]", info->known ? info->max - info->min : -1);
+			
+			int ret = pop() + 4;
+			int ret2 = emitPc() + 2;
+			int offset = ret - (emitPc() + (v4Opt ? 8 : 10)) ;
+			if (-offset <= 0xff) {
 				if (!v4Opt) {
-						emit(0x7827);				// ldr v4, [v1]
-						offset--;
+						emit(0x7827);					// ldr v4, [v1]
+						offset -= 2;
 				}
-				emit(0xe000 | (offset & 0x7ff));		// b #{offset}	
+				emit(0x433f);							// orrs v4, v4
+				emit(0xd100 | ((offset >> 1) & 0xff));	// bne #{offset}	
 			} else {
 				if (emitPc() % 4 != 0) {
 					if (!v4Opt) {
 						emit(0x7827);					// ldr v4, [v1]
+						emit(0x433f);					// orrs v4, v4
 						emit(0x4b01);					// ldr r3, [pc + #4]
+						emit(0xd003);					// beq pc + #6 
 						emit(0x4718);					// bx r3 
 						emit(0x46c0);					/* nop */
 						emitWord(ret | 1);				// .word (ret|1)
 					} else {
-						emit(0x4b00);					// ldr r3, [pc]
+						emit(0x433f);					// orrs v4, v4
+						emit(0x4b01);					// ldr r3, [pc + #4]
+						emit(0xd002);					// beq pc + #4 
 						emit(0x4718);					// bx r3 
 						emitWord(ret | 1);				// .word (ret|1)
 					}
 				} else {
 					if (!v4Opt) {
 						emit(0x7827);					// ldr v4, [v1]
-						emit(0x4b00);					// ldr r3, [pc + #0]
+						emit(0x433f);					// orrs v4, v4
+						emit(0x4b01);					// ldr r3, [pc + #4]
+						emit(0xd002);					// beq pc + #4 
 						emit(0x4718);					// bx r3 
 						emitWord(ret | 1);				// .word (ret|1)
 					} else {
-						emit(0x4b01);					// ldr r3, [pc+#4]
+						emit(0x433f);					// orrs v4, v4
+						emit(0x4b01);					// ldr r3, [pci + #4]
+						emit(0xd003);					// beq pc + #6 
 						emit(0x4718);					// bx r3 
 						emit(0x46c0);					/* nop */
 						emitWord(ret | 1);				// .word (ret|1)
 					}
 				}
 			}
-			int ret2 = (emitPc() + 2) | 1;
-			emitAt(addr + 0, ret2 & 0xffff);
-			emitAt(addr + 2, (ret2 >> 16) & 0xffff);
+			emitAt(ret - 4, (ret2|1) & 0xffff);
+			emitAt(ret - 2, ((ret2|1) >> 16) & 0xffff);
 
 			v4Opt = 1;
 		}
@@ -298,6 +329,8 @@ int main() {
 	sat_stack_push_string(bb);
 #endif
 
+	WAIT_CANCEL;
+			
 	beep();
 	typedef void (*funcp)();
 	(*(funcp)((unsigned)jitStart|1))();			// 1 means the callee is thumb code
