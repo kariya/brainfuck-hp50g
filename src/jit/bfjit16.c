@@ -42,9 +42,15 @@
 
 /* modified by kairya@kariya.cc */
 
-#include "hpgcc49.h"
-
 //#define DBG
+//#define DUMP 
+
+#ifdef DUMP
+#include <stdio.h>
+#include <stdlib.h>
+#else
+#include "hpgcc49.h"
+#endif
 
 #define out(c) (*pout++ = (c))
 #define in() (*pin++)
@@ -104,14 +110,20 @@ int main() {
 	char buf_in[BUF_SIZE], *pin = buf_in;
 	char* p;
 
+#if DUMP
+	p = "[>+,-]";
+#else
 	if (sat_stack_depth() > 1) {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
 		strcat(buf_in, "\n");
 	}
 	p = sat_stack_pop_string_alloc();
+#endif
 	prog_len = strlen(p);
 
+#ifndef DUMP
 	sys_slowOff();
+#endif
 	
 	for(xc = 0; xc < BUF_SIZE; xc++) {
 		x[xc] = 0;
@@ -251,7 +263,9 @@ int main() {
 				info->known = 0;
 				((struct loopInfo*) top(1+1))->known = 0;
 			}
+#ifdef DBG
 			printf("[%d]", info->known ? info->max - info->min : -1);
+#endif
 			
 			int ret = pop() + 4;
 			int ret2 = emitPc() + 2;
@@ -313,24 +327,15 @@ int main() {
 	emit(0xbcf8);								/* pop {r3,v1,v2,v3,v4} */
 	emit(0x4770);								/* bx lr */
 
-#ifdef DBG
+#ifdef DUMP
 	int i;
-	char *bb = malloc(8*1024*2), bbb[16];
-	strcpy(bb, "");
+	printf("void f() {\n");
+	printf("\tasm(\".org 0x%x\");\n", jit);
 	for (i = 0; i < BUF_SIZE; ++i) { 
-		itoa(jit[i], bbb, 16);
-		strcat(bb, bbb);
-		strcat(bb, "@");
-		itoa(&jit[i], bbb, 16);
-		strcat(bb, bbb);
-		strcat(bb, "\n");
-		if (jit[i] == 0) break;
+		printf("\tasm(\".short 0x%x\");\n", jit[i]);
 	}
-	sat_stack_push_string(bb);
-
-	WAIT_CANCEL;
-#endif
-	
+	printf("}\n");
+#else
 	beep();
 	typedef void (*funcp)();
 	(*(funcp)((unsigned)jitStart|1))();			// 1 means the callee is thumb code
@@ -339,7 +344,8 @@ int main() {
 	sys_slowOn();
 	
 	sat_stack_push_string(buf_out);
-	
+#endif	
+
 	return 0;
 }
 
