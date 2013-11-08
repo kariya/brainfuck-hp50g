@@ -45,6 +45,8 @@ It seems easy to make a trace-based JIT but it is questionable whether to get mo
 
 
 ## TODO
+I'm considering another loop optiomization by register allocation. 
+
 Making 32 bit (non-thumb) version seems trivial, but I'd like to see difference of speed between 16 bit and 32 bit versions.
 
 I have a plan, in my mind, to implement a Forth interpreter and (JIT) compiler on HP50g.
