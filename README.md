@@ -45,7 +45,7 @@ It seems easy to make a trace-based JIT but it is questionable whether to get mo
 
 
 ## TODO
-I'm considering another loop optiomization by register allocation. 
+I'm considering another loop optimization by register allocation. 
 
 Making 32 bit (non-thumb) version seems trivial, but I'd like to see difference of speed between 16 bit and 32 bit versions.
 
