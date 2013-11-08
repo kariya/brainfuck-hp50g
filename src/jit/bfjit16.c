@@ -327,10 +327,10 @@ int main() {
 		if (jit[i] == 0) break;
 	}
 	sat_stack_push_string(bb);
-#endif
 
 	WAIT_CANCEL;
-			
+#endif
+	
 	beep();
 	typedef void (*funcp)();
 	(*(funcp)((unsigned)jitStart|1))();			// 1 means the callee is thumb code
