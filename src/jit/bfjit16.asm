@@ -131,20 +131,20 @@ int main() {
 	}
 	xc = 0;
 	
-	emit(0xb4f8); 									/* push {r3,v1,v2,v3,v4} */
-	emit(0x46c0);									/* nop */
+	emit([[push {r3,v1,v2,v3,v4}]]);
+	emit([[nop]]);
 	// v1 := ${x}
-	emit(0x4c00); 									// ldr v1, [pc]
-	emit(0xe001); 									// b r#1
-	emitWord((int)x);								// .word x 
+	emit([[ldr v1, [pc]]]);
+	emit([[b 10]]);
+	emitWord((int) x);
 	// v2 := ${pin}
-	emit(0x4d00); 									// ldr v2, [pc]
-	emit(0xe001); 									// b r#1
-	emitWord((int)pin);								// .word pin 
+	emit([[ldr v2, [pc]]]);
+	emit([[b 10]]);
+	emitWord((int) pin);
 	// v3 := ${pout}
-	emit(0x4e00);									// ldr v3, [pc]
-	emit(0xe001); 									// b r#1
-	emitWord((int)pout);							// .word pout 
+	emit([[ldr v3, [pc]]]);
+	emit([[b 10]]);
+	emitWord((int) pout);
 
 	
 	int v4Opt = 0; /* =1 ifv4 and [v1] are the same value, =0 otherwise */
@@ -168,30 +168,30 @@ int main() {
 			if (d == 0) {
 				// empty
 			} else if (d > 0) {
-				if (!v4Opt) emit(0x7827);			/* ldrb v4, [v1] */
-				emit(0x3700 | (d & 0xff));			/* add v4, v4, #{d} */
-				emit(0x7027);						/* strb v4, [v1] */
+				if (!v4Opt) emit([[ldrb v4, [v1]]]);
+				emit([[add v4, v4, #0]] | (d & 0xff));
+				emit([[strb v4, [v1]]]);
 			} else if (d < 0) {
-				if (!v4Opt) emit(0x7827);			/* ldrb v4, [v1] */
-				emit(0x3f00 | ((-d) & 0xff));		/* sub v4, v4, #{d} */
-				emit(0x7027);						/* strb v4, [v1] */
+				if (!v4Opt) emit([[ldrb v4, [v1]]]);
+				emit([[sub v4, v4, #0]] | ((-d) & 0xff));
+				emit([[strb v4, [v1]]]);
 			}
 			
 			v4Opt = 1;
 		}
 		// '.'
 		else if (p[pc] == 46) {
-			if (!v4Opt) emit(0x7827);				/* ldrb v4, [v1] */
-			emit(0x7037);							/* strb v4, [v3] */
-			emit(0x3601);							/* add v3, v3, #1 */
+			if (!v4Opt) emit([[ldrb v4, [v1]]]);
+			emit([[strb v4, [v3]]]);
+			emit([[add v3, v3, #1]]);
 		
 			v4Opt = 1;
 		}
 		// ','
 		else if (p[pc] == 44) {
-			emit(0x782f);							/* ldrb v4, [v2] */
-			emit(0x3501);							/* add v2, v2, #1 */
-			emit(0x7027);							/* strb v4, [v1] */
+			emit([[ldrb v4, [v2]]]);
+			emit([[add v2, v2, #1]]);
+			emit([[strb v4, [v1]]]);
 
 			v4Opt = 1;
 		}	
@@ -213,10 +213,10 @@ int main() {
 			if (d == 0) {
 				// empty
 			} else if (d > 0) {
-				emit(0x3400 | (d & 0xff));				/* add v1, v1, #{d} */
+				emit([[add v1, v1, #0]] | (d & 0xff));
 				v4Opt = 0;
 			} else if (d < 0) {
-				emit(0x3c00 | ((-d) & 0xff));			/* sub v1, v1, #{d} */
+				emit([[sub v1, v1, #0]] | ((-d) & 0xff));
 				v4Opt = 0;
 			}
 			struct loopInfo* info = (struct loopInfo*) top(1);
@@ -228,27 +228,27 @@ int main() {
 		else if (p[pc] == 91) {
 			if (emitPc() % 4 != 0) {
 				if (!v4Opt) { 
-					emit(0x7827);					// ldr v4, [v1]
-					emit(0x4b01);					/* ldr r3, [pc+#4] */
-					emit(0x4718);					/* bx r3 */
-					emit(0x46c0);					/* nop */
-					push(emitWord(0));				/* .word */
+					emit([[ldr v4, [v1]]]);
+					emit([[ldr r3, [pc, #4]]]);
+					emit([[bx r3]]);
+					emit([[nop]]);
+					push(emitWord(0));
 				} else {
-					emit(0x4b00);					/* ldr r3, [pc+#0] */
-					emit(0x4718);					/* bx r3 */
-					push(emitWord(0));				/* .word */
+					emit([[ldr r3, [pc, #0]]]);
+					emit([[bx r3]]);
+					push(emitWord(0));
 				}
 			} else {
 				if (!v4Opt) { 
-					emit(0x7827);					// ldr v4, [v1]
-					emit(0x4b00);					/* ldr r3, [pc+#0] */
-					emit(0x4718);					/* bx r3 */
-					push(emitWord(0));				/* .word */
+					emit([[ldr v4, [v1]]]);
+					emit([[ldr r3, [pc, #0]]]);
+					emit([[bx r3]]);
+					push(emitWord(0));
 				} else {
-					emit(0x4b01);					/* ldr r3, [pc+#4] */
-					emit(0x4718);					/* bx r3 */
-					emit(0x46c0);					/* nop */
-					push(emitWord(0));				/* .word */
+					emit([[ldr r3, [pc, #4]]]);
+					emit([[bx r3]]);
+					emit([[nop]]);
+					push(emitWord(0));
 				}
 			}
 													/* l: */
@@ -272,43 +272,43 @@ int main() {
 			int offset = ret - (emitPc() + (v4Opt ? 8 : 10)) ;
 			if (-offset <= 0xff) {
 				if (!v4Opt) {
-						emit(0x7827);					// ldr v4, [v1]
+						emit([[ldr v4, [v1]]]);
 						offset -= 2;
 				}
-				emit(0x433f);							// orrs v4, v4
-				emit(0xd100 | ((offset >> 1) & 0xff));	// bne #{offset}	
+				emit([[orr v4, v4]]);
+				emit([[bne 8]] | ((offset >> 1) & 0xff));
 			} else {
 				if (emitPc() % 4 != 0) {
 					if (!v4Opt) {
-						emit(0x7827);					// ldr v4, [v1]
-						emit(0x433f);					// orrs v4, v4
-						emit(0x4b01);					// ldr r3, [pc + #4]
-						emit(0xd003);					// beq pc + #6 
-						emit(0x4718);					// bx r3 
-						emit(0x46c0);					/* nop */
-						emitWord(ret | 1);				// .word (ret|1)
+						emit([[ldr v4, [v1]]]);
+						emit([[orr v4, v4]]);
+						emit([[ldr r3, [pc, #4]]]);
+						emit([[beq 20]]);
+						emit([[bx r3]]);
+						emit([[nop]]);
+						emitWord(ret | 1);
 					} else {
-						emit(0x433f);					// orrs v4, v4
-						emit(0x4b01);					// ldr r3, [pc + #4]
-						emit(0xd002);					// beq pc + #4 
-						emit(0x4718);					// bx r3 
-						emitWord(ret | 1);				// .word (ret|1)
+						emit([[orr v4, v4]]);
+						emit([[ldr r3, [pc, #4]]]);
+						emit([[beq 16]]);
+						emit([[bx r3]]);
+						emitWord(ret | 1);
 					}
 				} else {
 					if (!v4Opt) {
-						emit(0x7827);					// ldr v4, [v1]
-						emit(0x433f);					// orrs v4, v4
-						emit(0x4b01);					// ldr r3, [pc + #4]
-						emit(0xd002);					// beq pc + #4 
-						emit(0x4718);					// bx r3 
-						emitWord(ret | 1);				// .word (ret|1)
+						emit([[ldr v4, [v1]]]);
+						emit([[orr v4, v4]]);
+						emit([[ldr r3, [pc, #4]]]);
+						emit([[beq 16]]);
+						emit([[bx r3]]);
+						emitWord(ret | 1);
 					} else {
-						emit(0x433f);					// orrs v4, v4
-						emit(0x4b01);					// ldr r3, [pci + #4]
-						emit(0xd003);					// beq pc + #6 
-						emit(0x4718);					// bx r3 
-						emit(0x46c0);					/* nop */
-						emitWord(ret | 1);				// .word (ret|1)
+						emit([[orr v4, v4]]);
+						emit([[ldr r3, [pc, #4]]]);
+						emit([[beq 20]]);
+						emit([[bx r3]]);
+						emit([[nop]]);
+						emitWord(ret | 1);
 					}
 				}
 			}
@@ -320,12 +320,12 @@ int main() {
 	}
 	
 	// put('\0') as output string terminator
-	emit(0x2700); 								/* mov v4, #0 */
-	emit(0x7037); 								/* strb v4, [v3] */
-	emit(0x3601);								/* add v3, v3, #1 */
+	emit([[mov v4, #0]]);
+	emit([[strb v4, [v3]]]);
+	emit([[add v3, v3, #1]]);
 	
-	emit(0xbcf8);								/* pop {r3,v1,v2,v3,v4} */
-	emit(0x4770);								/* bx lr */
+	emit([[pop {r3,v1,v2,v3,v4}]]);
+	emit([[bx lr]]);
 
 #ifdef DUMP
 	int i;

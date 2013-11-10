@@ -43,3 +43,5 @@ clean:
 	gcc -Wall -g -o $@ $< -DHPGCC -I $(HPAPINE)/include/ \
 	-DHPAPINE -L $(HPAPINE)/lib/ -lhpapine \
 	$(shell pkg-config --libs gdk-2.0 gthread-2.0)
+%.c: %.asm
+	../../bin/dasm.sh $< > $@
