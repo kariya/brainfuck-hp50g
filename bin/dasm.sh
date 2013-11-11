@@ -19,7 +19,7 @@ asm() {
 }
 
 IFS="" 
-while read l
+while read -r l
 do
 	if echo "$l" | grep '\[\[.*]]' > /dev/null; then
 		A=$(echo "$l" | sed 's/^.*\[\[\(.*\)]].*$/\1/')
