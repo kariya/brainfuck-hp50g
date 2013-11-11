@@ -102,6 +102,13 @@ struct loopInfo* newInfo() {
 	info->known = -1;
 	return info;
 }
+struct loopInfo *stackLoop[256];
+struct loopInfo** stackpLoop = stackLoop;
+#define pushLoop(x) (*stackpLoop++ = (x))
+#define popLoop()   (*--stackpLoop)
+#define topLoop(n)   (*(stackpLoop-(n)))
+
+
 
 int main() {
 	int pc, xc, prog_len;
@@ -111,7 +118,9 @@ int main() {
 	char* p;
 
 #if DUMP
-	p = "[>+,-]";
+	int c;
+	char* pp = p;
+	while ((c = getchar()) != EOF) *pp++ = c;
 #else
 	if (sat_stack_depth() > 1) {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
@@ -148,7 +157,7 @@ int main() {
 
 	
 	int v4Opt = 0; /* =1 ifv4 and [v1] are the same value, =0 otherwise */
-	push((int) newInfo());
+	pushLoop(newInfo());
 	for (pc = 0; pc < prog_len; pc++) {
 		// '+', '-'
 		if (p[pc] == 43 || p[pc] == 45) {
@@ -219,7 +228,7 @@ int main() {
 				emit([[sub v1, v1, #0]] | ((-d) & 0xff));
 				v4Opt = 0;
 			}
-			struct loopInfo* info = (struct loopInfo*) top(1);
+			struct loopInfo* info = topLoop(1);
 			info->cur += d;
 			info->max = MAX(info->max, info->cur);
 			info->min = MIN(info->min, info->cur);
@@ -252,16 +261,16 @@ int main() {
 				}
 			}
 													/* l: */
-			push((int) newInfo());
+			pushLoop(newInfo());
 			v4Opt = 1;
 		}
 		// ']'
 		else if (p[pc] == 93) {
-			struct loopInfo* info = (struct loopInfo*) pop();
+			struct loopInfo* info = popLoop();
 			if (info->cur == 0 && info->known == -1) info->known = 1;
 			else {
 				info->known = 0;
-				((struct loopInfo*) top(1+1))->known = 0;
+				topLoop(1)->known = 0;
 			}
 #ifdef DBG
 			printf("[%d]", info->known ? info->max - info->min : -1);
