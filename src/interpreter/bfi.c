@@ -51,15 +51,14 @@
 int main() {
 	int pc, xc, prog_len, l = 0;
 	int x[32768];
-	char buf_out[1024*32], *pout = &buf_out;
-	char buf_in[1024*32], *pin = &buf_in;
+	char buf_out[1024*32], *pout = buf_out;
+	char buf_in[1024*32], *pin = buf_in;
 	char* p;
 
 	if (sat_stack_depth() > 1) {
-	} else {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
-		strcat(buf_in, "\n");
 	}
+	strcat(buf_in, "\n");
 	p = sat_stack_pop_string_alloc();
 	prog_len = strlen(p);
 
@@ -71,6 +70,12 @@ int main() {
 	xc = 0;
 
 	for(pc = 0; pc < prog_len; pc++) {
+#if 0
+if (xc < 0 || xc > 1024 * 32)  {
+	beep();
+	WAIT_CANCEL;
+}
+#endif
 //		if (keyb_isAnyKeyPressed()) {
 //		break;
 //	}
@@ -117,7 +122,7 @@ int main() {
 		}
 	}
 	
-	/*out(10);*/
+	//out(10);
 	
 	out('\0');
 	
