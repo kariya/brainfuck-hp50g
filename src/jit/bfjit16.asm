@@ -96,12 +96,6 @@ struct loopInfo {
 #define MAX(a,b) ((a)>=(b)?(a):(b))
 #define MIN(a,b) ((a)<(b)?(a):(b))
 
-struct loopInfo* stackLoop[256];
-struct loopInfo** stackpLoop = &stackLoop[0];
-#define pushLoop(x) (*stackpLoop++ = (x))
-#define popLoop()   (*--stackpLoop)
-#define topLoop(n)   (*(stackpLoop-(n)))
-
 struct loopInfo* newInfo() {
 	struct loopInfo* info = (struct loopInfo*) malloc(sizeof(struct loopInfo));;
 	info->cur = info->max = info->min = 0;
@@ -132,8 +126,8 @@ int main() {
 #else
 	if (sat_stack_depth() > 1) {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
-		strcat(buf_in, "\n");
 	}
+	strcat(buf_in, "\n");
 	p = sat_stack_pop_string_alloc();
 #endif
 	prog_len = strlen(p);
