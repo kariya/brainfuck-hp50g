@@ -139,23 +139,31 @@ int main() {
 		buf_out[xc] = 0;
 	}
 	xc = 0;
+
+#if 0
+	register allocation:
+	r0: general 
+	r4: general2 
+	r5: x
+	r6: pin
+	r7: pout
+#endif
 	
-	emit([[push {r3,v1,v2,v3,v4}]]);
+	emit([[push {r0,r4,r5,r6,r7}]]);
 	emit([[nop]]);
-	// v1 := ${x}
-	emit([[ldr v1, [pc]]]);
+	// r5 := ${x}
+	emit([[ldr r5, [pc]]]);
 	emit([[b 10]]);
 	emitWord((int) x);
-	// v2 := ${pin}
-	emit([[ldr v2, [pc]]]);
+	// r6 := ${pin}
+	emit([[ldr r6, [pc]]]);
 	emit([[b 10]]);
 	emitWord((int) pin);
-	// v3 := ${pout}
-	emit([[ldr v3, [pc]]]);
+	// r7 := ${pout}
+	emit([[ldr r7, [pc]]]);
 	emit([[b 10]]);
 	emitWord((int) pout);
 
-	
 	int v4Opt = 0; /* =1 ifv4 and [v1] are the same value, =0 otherwise */
 	pushLoop(newInfo());
 	for (pc = 0; pc < prog_len; pc++) {
@@ -177,30 +185,30 @@ int main() {
 			if (d == 0) {
 				// empty
 			} else if (d > 0) {
-				if (!v4Opt) emit([[ldrb v4, [v1]]]);
-				emit([[add v4, v4, #0]] | (d & 0xff));
-				emit([[strb v4, [v1]]]);
+				if (!v4Opt) emit([[ldrb r0, [r5]]]);
+				emit([[add r0, r0, #0]] | (d & 0xff));
+				emit([[strb r0, [r5]]]);
 			} else if (d < 0) {
-				if (!v4Opt) emit([[ldrb v4, [v1]]]);
-				emit([[sub v4, v4, #0]] | ((-d) & 0xff));
-				emit([[strb v4, [v1]]]);
+				if (!v4Opt) emit([[ldrb r0, [r5]]]);
+				emit([[sub r0, r0, #0]] | ((-d) & 0xff));
+				emit([[strb r0, [r5]]]);
 			}
 			
 			v4Opt = 1;
 		}
 		// '.'
 		else if (p[pc] == 46) {
-			if (!v4Opt) emit([[ldrb v4, [v1]]]);
-			emit([[strb v4, [v3]]]);
-			emit([[add v3, v3, #1]]);
+			if (!v4Opt) emit([[ldrb r0, [r5]]]);
+			emit([[strb r0, [r7]]]);
+			emit([[add r7, r7, #1]]);
 		
 			v4Opt = 1;
 		}
 		// ','
 		else if (p[pc] == 44) {
-			emit([[ldrb v4, [v2]]]);
-			emit([[add v2, v2, #1]]);
-			emit([[strb v4, [v1]]]);
+			emit([[ldrb r0, [r6]]]);
+			emit([[add r6, r6, #1]]);
+			emit([[strb r0, [r5]]]);
 
 			v4Opt = 1;
 		}	
@@ -222,10 +230,10 @@ int main() {
 			if (d == 0) {
 				// empty
 			} else if (d > 0) {
-				emit([[add v1, v1, #0]] | (d & 0xff));
+				emit([[add r5, r5, #0]] | (d & 0xff));
 				v4Opt = 0;
 			} else if (d < 0) {
-				emit([[sub v1, v1, #0]] | ((-d) & 0xff));
+				emit([[sub r5, r5, #0]] | ((-d) & 0xff));
 				v4Opt = 0;
 			}
 			struct loopInfo* info = topLoop(1);
@@ -237,25 +245,25 @@ int main() {
 		else if (p[pc] == 91) {
 			if (emitPc() % 4 != 0) {
 				if (!v4Opt) { 
-					emit([[ldr v4, [v1]]]);
-					emit([[ldr r3, [pc, #4]]]);
-					emit([[bx r3]]);
+					emit([[ldr r0, [r5]]]);
+					emit([[ldr r4, [pc, #4]]]);
+					emit([[bx r4]]);
 					emit([[nop]]);
 					push(emitWord(0));
 				} else {
-					emit([[ldr r3, [pc, #0]]]);
-					emit([[bx r3]]);
+					emit([[ldr r4, [pc, #0]]]);
+					emit([[bx r4]]);
 					push(emitWord(0));
 				}
 			} else {
 				if (!v4Opt) { 
-					emit([[ldr v4, [v1]]]);
-					emit([[ldr r3, [pc, #0]]]);
-					emit([[bx r3]]);
+					emit([[ldr r0, [r5]]]);
+					emit([[ldr r4, [pc, #0]]]);
+					emit([[bx r4]]);
 					push(emitWord(0));
 				} else {
-					emit([[ldr r3, [pc, #4]]]);
-					emit([[bx r3]]);
+					emit([[ldr r4, [pc, #4]]]);
+					emit([[bx r4]]);
 					emit([[nop]]);
 					push(emitWord(0));
 				}
@@ -281,41 +289,41 @@ int main() {
 			int offset = ret - (emitPc() + (v4Opt ? 8 : 10)) ;
 			if (-offset <= 0xff) {
 				if (!v4Opt) {
-						emit([[ldr v4, [v1]]]);
+						emit([[ldr r0, [r5]]]);
 						offset -= 2;
 				}
-				emit([[orr v4, v4]]);
+				emit([[orr r0, r0]]);
 				emit([[bne 8]] | ((offset >> 1) & 0xff));
 			} else {
 				if (emitPc() % 4 != 0) {
 					if (!v4Opt) {
-						emit([[ldr v4, [v1]]]);
-						emit([[orr v4, v4]]);
-						emit([[ldr r3, [pc, #4]]]);
+						emit([[ldr r0, [r5]]]);
+						emit([[orr r0, r0]]);
+						emit([[ldr r4, [pc, #4]]]);
 						emit([[beq 20]]);
-						emit([[bx r3]]);
+						emit([[bx r4]]);
 						emit([[nop]]);
 						emitWord(ret | 1);
 					} else {
-						emit([[orr v4, v4]]);
-						emit([[ldr r3, [pc, #4]]]);
+						emit([[orr r0, r0]]);
+						emit([[ldr r4, [pc, #4]]]);
 						emit([[beq 16]]);
-						emit([[bx r3]]);
+						emit([[bx r4]]);
 						emitWord(ret | 1);
 					}
 				} else {
 					if (!v4Opt) {
-						emit([[ldr v4, [v1]]]);
-						emit([[orr v4, v4]]);
-						emit([[ldr r3, [pc, #4]]]);
+						emit([[ldr r0, [r5]]]);
+						emit([[orr r0, r0]]);
+						emit([[ldr r4, [pc, #4]]]);
 						emit([[beq 16]]);
-						emit([[bx r3]]);
+						emit([[bx r4]]);
 						emitWord(ret | 1);
 					} else {
-						emit([[orr v4, v4]]);
-						emit([[ldr r3, [pc, #4]]]);
+						emit([[orr r0, r0]]);
+						emit([[ldr r4, [pc, #4]]]);
 						emit([[beq 20]]);
-						emit([[bx r3]]);
+						emit([[bx r4]]);
 						emit([[nop]]);
 						emitWord(ret | 1);
 					}
@@ -329,11 +337,11 @@ int main() {
 	}
 	
 	// put('\0') as output string terminator
-	emit([[mov v4, #0]]);
-	emit([[strb v4, [v3]]]);
-	emit([[add v3, v3, #1]]);
+	emit([[mov r0, #0]]);
+	emit([[strb r0, [r7]]]);
+	emit([[add r7, r7, #1]]);
 	
-	emit([[pop {r3,v1,v2,v3,v4}]]);
+	emit([[pop {r0,r4,r5,r6,r7}]]);
 	emit([[bx lr]]);
 
 #ifdef DUMP
