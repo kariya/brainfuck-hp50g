@@ -90,18 +90,25 @@ struct loopInfo {
 	int cur;
 	int max;
 	int min;
-	int known;
+	int simple;
 };
 
 #define MAX(a,b) ((a)>=(b)?(a):(b))
 #define MIN(a,b) ((a)<(b)?(a):(b))
 
+struct loopInfo* stackLoop[256];
+struct loopInfo** stackpLoop = &stackLoop[0];
+#define pushLoop(x) (*stackpLoop++ = (x))
+#define popLoop()   (*--stackpLoop)
+#define topLoop(n)   (*(stackpLoop-(n)))
+
 struct loopInfo* newInfo() {
-	struct loopInfo* info = malloc(sizeof(struct loopInfo));
+	struct loopInfo* info = (struct loopInfo*) malloc(sizeof(struct loopInfo));;
 	info->cur = info->max = info->min = 0;
-	info->known = -1;
+	info->simple = -1;
 	return info;
 }
+
 
 int main() {
 	int pc, xc, prog_len;
@@ -111,7 +118,10 @@ int main() {
 	char* p;
 
 #if DUMP
-	p = "[>+,-]";
+	p = malloc(1024*8);
+	char* pp = p;	
+	int c;
+	while ((c = getchar()) != EOF) *pp++ = c;
 #else
 	if (sat_stack_depth() > 1) {
 		strcpy(buf_in, sat_stack_pop_string_alloc());
@@ -148,7 +158,7 @@ int main() {
 
 	
 	int v4Opt = 0; /* =1 ifv4 and [v1] are the same value, =0 otherwise */
-	push((int) newInfo());
+	pushLoop(newInfo());
 	for (pc = 0; pc < prog_len; pc++) {
 		// '+', '-'
 		if (p[pc] == 43 || p[pc] == 45) {
@@ -219,7 +229,7 @@ int main() {
 				emit([[sub v1, v1, #0]] | ((-d) & 0xff));
 				v4Opt = 0;
 			}
-			struct loopInfo* info = (struct loopInfo*) top(1);
+			struct loopInfo* info = topLoop(1);
 			info->cur += d;
 			info->max = MAX(info->max, info->cur);
 			info->min = MIN(info->min, info->cur);
@@ -252,19 +262,19 @@ int main() {
 				}
 			}
 													/* l: */
-			push((int) newInfo());
+			pushLoop(newInfo());
 			v4Opt = 1;
 		}
 		// ']'
 		else if (p[pc] == 93) {
-			struct loopInfo* info = (struct loopInfo*) pop();
-			if (info->cur == 0 && info->known == -1) info->known = 1;
+			struct loopInfo* info = popLoop();
+			if (info->cur == 0 && info->simple == -1) info->simple = 1;
 			else {
-				info->known = 0;
-				((struct loopInfo*) top(1+1))->known = 0;
+				info->simple = 0;
+				topLoop(1)->simple = 0;
 			}
 #ifdef DBG
-			printf("[%d]", info->known ? info->max - info->min : -1);
+			printf("[%d]", info->simple ? info->max - info->min : -1);
 #endif
 			
 			int ret = pop() + 4;
@@ -330,7 +340,7 @@ int main() {
 #ifdef DUMP
 	int i;
 	printf("void f() {\n");
-	printf("\tasm(\".org 0x%x\");\n", jit);
+	printf("\tasm(\"" ".org 0x%x\");\n", jit);
 	for (i = 0; i < BUF_SIZE; ++i) { 
 		printf("\tasm(\".short 0x%x\");\n", jit[i]);
 	}
