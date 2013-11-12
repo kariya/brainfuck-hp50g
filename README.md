@@ -68,5 +68,4 @@ GPL
 
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/kariya/brainfuck-hp50g/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-<img src="http://git.kariya.cc/myBadge.png"/>
 
