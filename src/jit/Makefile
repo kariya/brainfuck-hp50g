@@ -5,7 +5,7 @@ export CUR_DIR = $(shell pwd)
 export CC = arm-elf-gcc
 export C_FLAGS = -mtune=arm920t -mcpu=arm920t \
 	-mlittle-endian -fomit-frame-pointer -msoft-float -Wall \
-	-Os -I$(INCLUDE_PATH) -L$(LIBS_PATH) -mthumb-interwork -mthumb 
+	-Os -I$(INCLUDE_PATH) -L$(LIBS_PATH) -mthumb-interwork -mthumb -g
 export LD = arm-elf-ld
 export LD_FLAGS = -L$(LIBS_PATH) -T VCld.script $(LIBS_PATH)/crt0.o 
 export LIBS = -lhpg -lhplib -lgcc
@@ -44,4 +44,6 @@ clean:
 	-DHPAPINE -L $(HPAPINE)/lib/ -lhpapine \
 	$(shell pkg-config --libs gdk-2.0 gthread-2.0)
 %.c: %.asm
-	../../bin/dasm.sh $< > $@
+	../../bin/dasm-arm-thumb.sh $< > $@
+%.c: %.asm32
+	../../bin/dasm-arm.sh $< > $@
