@@ -7,13 +7,13 @@ It's an ARM native code application, not emulated Saturn code.
 
 
 ## Usage
-Copy bin/bfi.hp, bin/bfij16.hp and data/*.b to your HP50g.
+Copy bin/bfi.hp, bin/bfij16.hp, bin/BFJ32.HP and data/*.b to your HP50g.
 
 Push a string of brainf*ck code(*.b) to the calculator stack.
 
 Optionally you can push to the stack another string as input.
 
-Execute either of the BFI.HP or BFJ16.HP programs and you can get the output string on the stack.
+Execute either of the BFI.HP, BFJ16.HP or BFJ32.HP programs and you can get the output string on the stack.
 
 (See also my screenshots in the img/screenshot directory)
 
@@ -25,12 +25,18 @@ You might need a paper clip to reset the calculator.
 ## Files
 bin/bfi.hp interpreter
 
-bin/bfj16.hp jit compiler(thumb version)
+bin/bfj16.hp jit compiler(16-bit thumb version)
+
+bin/bfj32.hp jit compiler(32-bit arm version)
 
 
 ## How to compile
 Install hpgcc (see [1]) and do "make bfi.hp" in src/interpreter directory.
+
 Or "make bfjit16.hp" in src/jit directory.
+
+Or "make bfjit32.hp" in src/jit directory.
+
 
 ## Purpose
 The purpose of this work is my exercise of learning ARM programming.
@@ -45,9 +51,9 @@ It seems easy to make a trace-based JIT but it is questionable whether to get mo
 
 
 ## TODO
-I'm considering another loop optimization by register allocation. 
+Check difference of speed between 16 bit and 32 bit versions.
 
-Making 32 bit (non-thumb) version seems trivial, but I'd like to see difference of speed between 16 bit and 32 bit versions.
+I'm considering another loop optimization by register allocation. 
 
 I have a plan, in my mind, to implement a Forth interpreter and (JIT) compiler on HP50g.
 
